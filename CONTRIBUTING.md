@@ -1,12 +1,12 @@
-# Contributing to WorkspaceOS
+# Contributing to gws-dashboard
 
-Thanks for your interest! WorkspaceOS is designed to make contributions easy — the entire UI is in one file, and the architecture is intentionally simple.
+Thanks for your interest! gws-dashboard is designed to make contributions easy — the entire UI is in one file, and the architecture is intentionally simple.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/<your-user>/workspace-os.git
-cd workspace-os
+git clone https://github.com/bipinssoni/gws-dashboard.git
+cd gws-dashboard
 pnpm install
 pnpm dev
 ```
