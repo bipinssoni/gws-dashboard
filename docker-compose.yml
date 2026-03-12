@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  # MCP Bridge: thin HTTP↔stdio proxy for gws
+  bridge:
+    build:
+      context: ./packages/mcp-bridge
+      dockerfile: Dockerfile
+    ports:
+      - "3100:3100"
+    environment:
+      - BRIDGE_PORT=3100
+      - GWS_SERVICES=${GWS_SERVICES:-drive,gmail,calendar,sheets,docs,chat}
+      - GWS_PATH=/usr/local/bin/gws
+      # Mount your gws credentials (from `gws auth export --unmasked`)
+      - GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/credentials/credentials.json
+    volumes:
+      - ${GWS_CREDENTIALS_DIR:-~/.config/gws}:/credentials:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3100/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # React Dashboard
+  dashboard:
+    build:
+      context: ./packages/dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      bridge:
+        condition: service_healthy
+    environment:
+      - VITE_BRIDGE_URL=http://localhost:3100

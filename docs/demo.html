@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkspaceOS — Google Workspace Cockpit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0B1120; overflow:hidden; }
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.08); border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,.15); }
+  * { scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.08) transparent; }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+  .ani-bounce { animation: bounce .6s infinite; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const TIMELINE = [
+  { time:"9:00", title:"Engineering Standup", sub:"" },
+  { time:"10:00", title:"Focus time", sub:"" },
+  { time:"11:00", title:"1:1 with Sarah", sub:"", active:true },
+  { time:"12:00", title:"Architecture Review: Auth...", sub:"Design Review · 6 attendees" },
+  { time:"12:00", title:"Developer onboarding tra...", sub:"" },
+  { time:"12:20", title:"Sprint planning — checkin", sub:"" },
+  { time:"12:30", title:"Platform roadmap FY2...", sub:"Roadmap Review" },
+  { time:"12:30", title:"[IMP] Infra Cost Stand...", sub:"" },
+  { time:"13:00", title:"[in-person] Team Expe...", sub:"Offsite · All Hands" },
+  { time:"13:15", title:"Lunch — Do not block any...", sub:"" },
+];
+
+const INIT_TASKS = [
+  { id:1, text:"Review PR #4281 retry logic", done:false },
+  { id:2, text:"Finalize Q2 OKRs", done:false },
+  { id:3, text:"Write postmortem action items", done:false },
+  { id:4, text:"Prepare onboarding for Priya", done:false },
+];
+
+const PROMPTS = [
+  { icon:"🌅", text:"Give me a morning briefing — calendar, emails, and tasks" },
+  { icon:"📋", text:"Prepare me for my next meeting" },
+  { icon:"📬", text:"Summarize my top unread emails" },
+  { icon:"📁", text:"Search Drive for recent docs and summarize the latest one" },
+  { icon:"✅", text:"Show my pending tasks and mark completed ones" },
+  { icon:"💬", text:"Reply to the latest email from my team" },
+];
+
+const DRIVE_FILES = [
+  { name:"Auth Service v2 — Tech Design", time:"10 min ago", icon:"📄", views:8 },
+  { name:"Q2 Sprint Tracker", time:"25 min ago", icon:"📊", views:12 },
+  { name:"Incident Postmortem — Mar 3", time:"1h ago", icon:"📄", views:5 },
+  { name:"Interview Scorecards — Backend", time:"2h ago", icon:"📊", views:4 },
+  { name:"Platform Engineering Roadmap", time:"3h ago", icon:"📑", views:15 },
+  { name:"API Gateway Migration Plan", time:"5h ago", icon:"📄", views:7 },
+];
+
+const INBOX = [
+  { subject:"URGENT: Production latency spike on checkout", from:"alerts@monitoring.io", time:"2m", p:"critical" },
+  { subject:"Re: Q2 Planning — Final OKRs for review", from:"sarah.chen@company.com", time:"18m", p:"action" },
+  { subject:"PR #4281: Refactor payment retry logic", from:"github@notifications.com", time:"45m", p:"reply" },
+  { subject:"Weekly Infra Cost Report — March W1", from:"finops@company.com", time:"1h", p:"fyi" },
+  { subject:"Team Offsite Venue Options", from:"people-ops@company.com", time:"2h", p:"fyi" },
+  { subject:"New hire onboarding: Priya Sharma", from:"hr@company.com", time:"3h", p:"action" },
+];
+
+const AI = {
+  briefing: "☀️ **Good morning! Here's your briefing for Monday, March 9:**\n\n📅 **Calendar** — 10 meetings today. Next up: 1:1 with Sarah at 11:00 AM.\n\n✉️ **Email highlights** (1,835 unread):\n• 🔴 Production latency spike on checkout flow — 2 min ago\n• 🟡 Q2 Planning — Final OKRs updated by Sarah — 18 min ago\n• 🟡 New hire onboarding: Priya starts Monday — 3h ago\n\n✅ **Tasks** — 4 pending, 2 due today:\n• Review PR #4281 retry logic\n• Write postmortem action items\n\n🎯 **Recommendation:** Handle the production alert first, then prep for your 11:00 1:1.",
+  meeting: "📋 **Meeting Prep: 1:1 with Sarah Chen**\n⏰ 11:00 AM · 30 min · Google Meet\n\n**Attendees:** You, Sarah Chen (EM, Platform)\n\n**Linked Docs:**\n• Q2 OKR Draft — last edited 18 min ago\n• Platform Engineering Roadmap — updated 3h ago\n\n**Previous meeting notes (Mar 2):**\n• Auth migration moved to Q3\n• On-call rotation fairness raised\n• Action: You owe promotion feedback for Alex\n\n**Suggested talking points:**\n1. Review Sarah's Q2 OKR changes\n2. Confirm Q3 auth migration timeline\n3. Share Alex promotion recommendation",
+  emails: "📬 **Top Unread Emails Summary:**\n\n🔴 **Production latency spike on checkout flow** (2 min ago)\nFrom: alerts@monitoring.io\nP99 latency exceeded 3s on /api/checkout. Auto-scaling triggered but not resolved.\n\n🟡 **Q2 Planning — Final OKRs for review** (18 min ago)\nFrom: sarah.chen@company.com\nUpdated shared doc with revised targets. Key change: auth migration moved to Q3.\n\n🟡 **PR #4281: Refactor payment retry logic** (45 min ago)\nFrom: github notifications\nAlex commented: \"Could we add exponential backoff?\"\n\n📊 **Summary:** 3 urgent, 12 need reply, 47 FYI, 1,773 newsletters.",
+  drive: "📁 **Recent Drive Activity:**\n\n**Most Active (last 24h):**\n1. 📄 Auth Service v2 — Tech Design (8 viewers, edited 10m ago)\n2. 📊 Q2 Sprint Tracker (12 viewers, edited 25m ago)\n3. 📄 Incident Postmortem — Mar 3 (5 viewers, edited 1h ago)\n\n**Shared with you recently:**\n• 📑 Platform Engineering Roadmap — 15 viewers\n• 📊 Interview Scorecards — Backend hiring, 4 viewers\n\n**Storage:** 12.4 GB of 15 GB used (82%)",
+  tasks: "✅ **Your Pending Tasks:**\n\n**Due Today:**\n☐ Review PR #4281 retry logic\n☐ Write postmortem action items\n\n**Due This Week:**\n☐ Finalize Q2 OKRs (Tomorrow)\n☐ Prepare onboarding for Priya (Friday)\n\n**Recently Completed:**\n✓ Submit expense report (Mar 7)\n✓ Update team wiki (Mar 6)\n\nWould you like me to mark any as done?",
+  reply: "💬 **Latest team email thread:**\n\n**Subject:** Re: Q2 Planning — Final OKRs for review\n**From:** sarah.chen@company.com (18 min ago)\n\nSarah updated the OKR doc. Here's a draft reply:\n\n---\n*Hi Sarah,*\n\n*Thanks for updating the OKRs. Moving auth migration to Q3 makes sense. I have a few comments on platform reliability targets — will add to the doc before tomorrow's sync.*\n\n*Quick question: should we keep the original stretch goal for API latency?*\n\n*— [Your name]*\n---\n\nWant me to send this, edit it, or draft something different?",
+  fallback: "I searched across your Google Workspace:\n\n📊 3 relevant documents in Drive\n✉️ 5 related email threads\n📅 2 upcoming calendar events\n\nWould you like me to dive deeper into any of these?"
+};
+
+const emailVol=[42,68,55,78,91,35,22];
+const meetHrs=[12,8,6,9];
+const DOW=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const WKS=["W1","W2","W3","W4"];
+const pDot={critical:"bg-red-500",action:"bg-amber-400",reply:"bg-blue-400",fyi:"bg-emerald-400"};
+
+function Spark({data,labels,color="#3B82F6",w=170,h=44}){
+  const mx=Math.max(...data),mn=Math.min(...data),r=mx-mn||1;
+  const pts=data.map((v,i)=>[i/(data.length-1)*w,h-((v-mn)/r)*(h-8)-4]);
+  const d=pts.map((p,i)=>`${i?"L":"M"}${p[0]} ${p[1]}`).join(" ");
+  return(
+    <svg viewBox={`0 0 ${w} ${h+14}`} style={{width:"100%",height:h+14}}>
+      <defs><linearGradient id={`g${color.slice(1)}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity=".15"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+      <path d={`${d} L${w} ${h} L0 ${h}Z`} fill={`url(#g${color.slice(1)})`}/>
+      <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+      {pts.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r={i===pts.length-2?3:0} fill={color}/>)}
+      {labels&&labels.map((l,i)=><text key={i} x={pts[i]?.[0]} y={h+12} textAnchor="middle" fill="#4B6584" fontSize="8">{l}</text>)}
+    </svg>
+  );
+}
+
+function IconBar({page,setPage}){
+  const items=[
+    {id:"chat",d:"M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"},
+    {id:"calendar",d:"M3 6a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6z M16 2v4 M8 2v4 M3 10h18"},
+    {id:"drive",d:"M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"},
+    {id:"mail",d:"M2 6a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6z M22 7l-10 6L2 7"},
+    {id:"tasks",d:"M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"}
+  ];
+  return(
+    <div style={{width:44,flexShrink:0}} className="bg-[#080D1A] flex flex-col items-center py-3 gap-1.5 border-r border-[#162240]">
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-500/20">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      {items.map(it=>(
+        <button key={it.id} onClick={()=>setPage(it.id)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${page===it.id?"bg-blue-500/15 text-blue-400":"text-[#3A5575] hover:text-[#80A4C4] hover:bg-white/5"}`} style={{border:"none",cursor:"pointer"}}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{it.d.split(" M").map((s,i)=><path key={i} d={`${i?"M":""}${s}`}/>)}</svg>
+        </button>
+      ))}
+      <div style={{marginTop:"auto"}} className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow shadow-emerald-500/50"/>
+    </div>
+  );
+}
+
+function LeftSide({tasks,toggle}){
+  const pending=tasks.filter(t=>!t.done).length;
+  return(
+    <div style={{width:215,flexShrink:0}} className="bg-[#0C1322] border-r border-[#162240] flex flex-col overflow-y-auto">
+      <div className="p-3 pb-1">
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.18em"}} className="text-blue-400 uppercase">WorkspaceOS</div>
+        <div style={{fontSize:13,fontWeight:600}} className="text-white/90 mt-0.5">Mon, 9 Mar</div>
+      </div>
+      <div className="px-3 pb-2">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+          {[{v:10,l:"meetings",c:""},{v:1835,l:"unread",c:"color:#FBBF24"},{v:pending,l:"tasks",c:"color:#34D399"}].map(m=>(
+            <div key={m.l} className="flex flex-col items-center py-2 rounded-lg bg-[#101B2D] border border-[#18293F]">
+              <span style={{fontSize:16,fontWeight:700,fontVariantNumeric:"tabular-nums",...(m.c?{[m.c.split(":")[0]]:m.c.split(":")[1]}:{color:"#fff"})}}>{m.v}</span>
+              <span style={{fontSize:8}} className="text-[#4B6584]">{m.l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="px-3 pb-2">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1"><span style={{fontSize:10}}>📅</span><span style={{fontSize:10,fontWeight:600}} className="text-white/90">Today's Timeline</span></div>
+          <span style={{fontSize:7,fontWeight:700,letterSpacing:"0.1em"}} className="text-[#3A5575] uppercase">Calendar</span>
+        </div>
+        <div className="bg-[#101B2D] rounded-lg border border-[#18293F] overflow-hidden">
+          <div className="px-2 py-1 border-b border-[#18293F]" style={{fontSize:9,color:"#4B6584"}}>📍 Office</div>
+          <div style={{maxHeight:200,overflowY:"auto"}} className="divide-y divide-[#18293F]/50">
+            {TIMELINE.map((e,i)=>(
+              <div key={i} className={`flex gap-2 px-2 py-1.5 hover:bg-white/[.02] ${e.active?"bg-blue-500/[.06]":""}`} style={{cursor:"default"}}>
+                <span style={{fontSize:9,width:32,flexShrink:0,fontVariantNumeric:"tabular-nums"}} className="text-[#4B6584]">{e.time}</span>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:9}} className={`truncate ${e.active?"text-blue-300 font-medium":"text-[#6B8AAE]"}`}>{e.title}</div>
+                  {e.sub&&<div style={{fontSize:8}} className="text-[#2F4A6A] truncate">{e.sub}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="px-3 pb-2">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1"><span style={{fontSize:10}}>✅</span><span style={{fontSize:10,fontWeight:600}} className="text-white/90">Pending Tasks</span></div>
+          <span style={{fontSize:7,fontWeight:700,letterSpacing:"0.1em"}} className="text-[#3A5575] uppercase">Tasks</span>
+        </div>
+        <div className="bg-[#101B2D] rounded-lg border border-[#18293F] p-2" style={{display:"flex",flexDirection:"column",gap:6}}>
+          {pending===0?<p style={{fontSize:9,textAlign:"center",padding:"4px 0"}} className="text-[#4B6584]">No pending tasks 🎉</p>:
+          tasks.map(t=>(
+            <div key={t.id} onClick={()=>toggle(t.id)} style={{display:"flex",alignItems:"flex-start",gap:6,cursor:"pointer"}} className="group">
+              <div style={{width:12,height:12,marginTop:2,borderRadius:3,borderWidth:1.5,borderStyle:"solid",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}} className={t.done?"bg-emerald-500/30 border-emerald-500":"border-[#2B4060] group-hover:border-blue-400"}>
+                {t.done&&<svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="4"><polyline points="20 6 9 17 4 12"/></svg>}
+              </div>
+              <span style={{fontSize:9,lineHeight:1.3}} className={t.done?"line-through text-[#2F4A6A]":"text-[#6B8AAE]"}>{t.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="px-3 pb-2" style={{marginTop:"auto"}}>
+        <div style={{fontSize:7,fontWeight:700,letterSpacing:"0.18em",marginBottom:4}} className="text-[#3A5575] uppercase">Quick Actions</div>
+        {[{i:"📬",l:"Check unread emails"},{i:"📅",l:"Tomorrow's schedule"},{i:"🌅",l:"Morning briefing"},{i:"📁",l:"Recent Drive files"}].map((a,j)=>(
+          <button key={j} style={{display:"flex",alignItems:"center",gap:6,width:"100%",padding:"4px 8px",border:"none",borderRadius:4,fontSize:9,textAlign:"left",cursor:"pointer",background:"transparent",transition:"all .15s"}} className="text-blue-300/90 hover:bg-blue-500/[.08]">
+            <span>{a.i}</span><span>{a.l}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChatArea({messages,onSend,typing}){
+  const[input,setInput]=useState("");
+  const endRef=useRef(null);
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages,typing]);
+  const go=()=>{if(input.trim()&&!typing){onSend(input.trim());setInput("");}};
+
+  const fmt=s=>s.split("\n").map((ln,i)=>{
+    let h=ln.replace(/\*\*(.+?)\*\*/g,'<b style="color:rgba(255,255,255,.95)">$1</b>');
+    h=h.replace(/\*(.+?)\*/g,'<i style="color:rgba(160,190,220,.8)">$1</i>');
+    h=h.replace(/^• /,'<span style="color:#60A5FA;margin-right:4px">•</span>');
+    h=h.replace(/^(\d+)\. /,'<span style="color:#60A5FA;margin-right:4px">$1.</span>');
+    return <p key={i} style={{minHeight:ln?"auto":6}} dangerouslySetInnerHTML={{__html:h||"&nbsp;"}}/>;
+  });
+
+  const Logo=()=>(
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+  );
+  const SmallLogo=()=>(
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+  );
+
+  const empty=messages.length===0&&!typing;
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,overflow:"hidden"}} className="bg-[#0B1120]">
+      <div style={{flex:1,overflowY:"auto"}}>
+        {empty?(
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",padding:"16px"}}>
+            <div style={{position:"relative",marginBottom:16}}>
+              <div style={{width:56,height:56,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center"}} className="bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl shadow-blue-500/20">
+                <Logo/>
+              </div>
+              <div style={{position:"absolute",bottom:-2,right:-2,width:14,height:14,borderRadius:"50%",border:"2.5px solid #0B1120"}} className="bg-emerald-500"/>
+            </div>
+            <div style={{fontSize:18,fontWeight:700,color:"#fff",marginBottom:2}}>WorkspaceOS</div>
+            <div style={{fontSize:11,color:"#6B8AAE",marginBottom:2}}>Your AI-powered Google Workspace cockpit.</div>
+            <div style={{fontSize:10,color:"#3A5575",marginBottom:28}}>All data is sourced directly — never fabricated.</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,width:"100%",maxWidth:380}}>
+              {PROMPTS.map((c,i)=>(
+                <button key={i} onClick={()=>onSend(c.text)}
+                  style={{display:"flex",alignItems:"flex-start",gap:8,padding:10,borderRadius:10,border:"1px solid #18293F",background:"#101B2D",cursor:"pointer",textAlign:"left",transition:"all .15s"}}
+                  onMouseOver={e=>{e.currentTarget.style.borderColor="#2563EB40";e.currentTarget.style.background="#122035";}}
+                  onMouseOut={e=>{e.currentTarget.style.borderColor="#18293F";e.currentTarget.style.background="#101B2D";}}>
+                  <span style={{fontSize:14,marginTop:2,flexShrink:0}}>{c.icon}</span>
+                  <span style={{fontSize:10,color:"#6B8AAE",lineHeight:1.5}}>{c.text}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ):(
+          <div style={{maxWidth:500,margin:"0 auto",padding:16,display:"flex",flexDirection:"column",gap:12}}>
+            {messages.map((m,i)=>(
+              <div key={i} style={{display:"flex",gap:8,justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+                {m.role==="assistant"&&<div style={{width:24,height:24,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:4}} className="bg-gradient-to-br from-blue-500 to-indigo-600 shadow shadow-blue-500/20"><SmallLogo/></div>}
+                <div style={{maxWidth:"88%"}}>
+                  <div style={{borderRadius:14,padding:"8px 12px",fontSize:11,lineHeight:1.7,...(m.role==="user"?{background:"#2563EB",color:"#fff"}:{background:"#101B2D",border:"1px solid #18293F",color:"#9AB8D4"})}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:2}}>{m.role==="assistant"?fmt(m.content):m.content}</div>
+                  </div>
+                  <div style={{fontSize:8,color:"#1E3350",marginTop:2,paddingLeft:2}}>{m.time}</div>
+                </div>
+              </div>
+            ))}
+            {typing&&(
+              <div style={{display:"flex",gap:8}}>
+                <div style={{width:24,height:24,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}} className="bg-gradient-to-br from-blue-500 to-indigo-600 shadow shadow-blue-500/20"><SmallLogo/></div>
+                <div style={{background:"#101B2D",border:"1px solid #18293F",borderRadius:14,padding:"10px 14px",display:"flex",gap:4}}>
+                  {[0,150,300].map(d=><div key={d} className="ani-bounce" style={{width:6,height:6,borderRadius:"50%",background:"rgba(96,165,250,.6)",animationDelay:`${d}ms`}}/>)}
+                </div>
+              </div>
+            )}
+            <div ref={endRef}/>
+          </div>
+        )}
+      </div>
+      <div style={{padding:"4px 16px 12px"}}>
+        <div style={{maxWidth:500,margin:"0 auto",display:"flex",alignItems:"center",gap:8,background:"#101B2D",border:"1px solid #18293F",borderRadius:14,padding:"6px 12px"}}>
+          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()}
+            placeholder="Ask about Gmail, Calendar, Drive, Tasks..."
+            style={{flex:1,background:"transparent",fontSize:11,color:"#9AB8D4",border:"none",outline:"none"}}/>
+          <button onClick={go} disabled={!input.trim()||typing}
+            style={{width:28,height:28,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,border:"none",cursor:input.trim()&&!typing?"pointer":"default",transition:"all .15s",background:input.trim()&&!typing?"#2563EB":"#18293F",color:input.trim()&&!typing?"#fff":"#263C58"}}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <div style={{fontSize:8,color:"#162240",textAlign:"center",marginTop:4}}>Powered by WorkspaceOS · Data sourced directly from Google Workspace</div>
+      </div>
+    </div>
+  );
+}
+
+function RightSide({tasksDone,total}){
+  const[tab,setTab]=useState("analytics");
+  const pending=total-tasksDone;
+  return(
+    <div style={{width:215,flexShrink:0}} className="bg-[#0C1322] border-l border-[#162240] flex flex-col overflow-y-auto">
+      <div style={{display:"flex",alignItems:"center",gap:2,padding:"12px 8px 8px"}}>
+        {[{id:"analytics",i:"📊",l:"Analytics"},{id:"drive",i:"📁",l:"Drive"},{id:"inbox",i:"📬",l:"Inbox"}].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",borderRadius:4,fontSize:9,fontWeight:600,border:"none",cursor:"pointer",transition:"all .15s",background:tab===t.id?"rgba(59,130,246,.1)":"transparent",color:tab===t.id?"#60A5FA":"#3A5575"}}>
+            <span style={{fontSize:9}}>{t.i}</span><span>{t.l}</span>
+          </button>
+        ))}
+      </div>
+
+      {tab==="analytics"&&(
+        <div style={{padding:"0 8px 12px",display:"flex",flexDirection:"column",gap:8}}>
+          <div className="bg-[#101B2D] rounded-lg border border-[#18293F]" style={{padding:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,.9)"}}>Email Volume (This Week)</span>
+              <span style={{fontSize:8,color:"#3A5575"}}>Approx.</span>
+            </div>
+            <Spark data={emailVol} labels={DOW}/>
+          </div>
+          <div className="bg-[#101B2D] rounded-lg border border-[#18293F]" style={{padding:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,.9)"}}>Meeting Load (hrs/week)</span>
+              <span style={{fontSize:8,color:"#3A5575"}}>4 weeks</span>
+            </div>
+            <Spark data={meetHrs} labels={WKS}/>
+          </div>
+          <div className="bg-[#101B2D] rounded-lg border border-[#18293F]" style={{padding:10}}>
+            <div style={{fontSize:10,fontWeight:600,color:"rgba(255,255,255,.9)",marginBottom:8}}>Live Stats</div>
+            {[{l:"Unread emails",v:"1,835",c:"#F59E0B"},{l:"Meetings today",v:"10",c:"#3B82F6"},{l:"Pending tasks",v:String(pending),c:"#22C55E"}].map((s,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2px 0"}}>
+                <span style={{fontSize:9,color:"#4B6584"}}>{s.l}</span>
+                <span style={{fontSize:12,fontWeight:700,fontVariantNumeric:"tabular-nums",color:s.c}}>{s.v}</span>
+              </div>
+            ))}
+          </div>
+          <button style={{width:"100%",textAlign:"center",fontSize:10,fontWeight:600,color:"#60A5FA",padding:"4px 0",background:"transparent",border:"none",cursor:"pointer"}}>Get full briefing →</button>
+        </div>
+      )}
+
+      {tab==="drive"&&(
+        <div style={{padding:"0 8px 12px"}}>
+          <div style={{fontSize:9,color:"#3A5575",marginBottom:6}}>Recent Files</div>
+          {DRIVE_FILES.map((f,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:6,borderRadius:6,cursor:"pointer",transition:"all .15s"}}
+              onMouseOver={e=>e.currentTarget.style.background="rgba(255,255,255,.03)"}
+              onMouseOut={e=>e.currentTarget.style.background="transparent"}>
+              <span style={{fontSize:12}}>{f.icon}</span>
+              <div style={{minWidth:0,flex:1}}>
+                <div style={{fontSize:9,color:"#6B8AAE",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+                <div style={{fontSize:8,color:"#2F4A6A"}}>{f.time} · {f.views} viewers</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab==="inbox"&&(
+        <div style={{padding:"0 8px 12px"}}>
+          <div style={{fontSize:9,color:"#3A5575",marginBottom:6}}>Priority Inbox</div>
+          {INBOX.map((e,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"flex-start",gap:6,padding:6,borderRadius:6,cursor:"pointer",transition:"all .15s"}}
+              onMouseOver={ev=>ev.currentTarget.style.background="rgba(255,255,255,.03)"}
+              onMouseOut={ev=>ev.currentTarget.style.background="transparent"}>
+              <div className={pDot[e.p]} style={{width:6,height:6,borderRadius:"50%",marginTop:5,flexShrink:0}}/>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:9,color:"#6B8AAE",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.subject}</div>
+                <div style={{fontSize:8,color:"#2F4A6A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.from} · {e.time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App(){
+  const[page,setPage]=useState("chat");
+  const[tasks,setTasks]=useState(INIT_TASKS);
+  const[msgs,setMsgs]=useState([]);
+  const[typing,setTyping]=useState(false);
+  const toggle=id=>setTasks(ts=>ts.map(t=>t.id===id?{...t,done:!t.done}:t));
+  const send=useCallback(text=>{
+    const now=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
+    setMsgs(p=>[...p,{role:"user",content:text,time:now}]);
+    setTyping(true);
+    setTimeout(()=>{
+      const l=text.toLowerCase();
+      let r=AI.fallback;
+      if(l.includes("morning")||l.includes("briefing"))r=AI.briefing;
+      else if(l.includes("meeting")||l.includes("prep")||l.includes("next"))r=AI.meeting;
+      else if(l.includes("unread")||l.includes("email")||l.includes("summarize"))r=AI.emails;
+      else if(l.includes("drive")||l.includes("doc")||l.includes("search"))r=AI.drive;
+      else if(l.includes("task")||l.includes("pending")||l.includes("completed"))r=AI.tasks;
+      else if(l.includes("reply")||l.includes("latest")||l.includes("team"))r=AI.reply;
+      setTyping(false);
+      const t2=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
+      setMsgs(p=>[...p,{role:"assistant",content:r,time:t2}]);
+    },1200+Math.random()*800);
+  },[]);
+  const done=tasks.filter(t=>t.done).length;
+  return(
+    <div style={{height:"100vh",display:"flex",background:"#0B1120",color:"#fff",overflow:"hidden",fontFamily:"system-ui,-apple-system,sans-serif"}}>
+      <IconBar page={page} setPage={setPage}/>
+      <LeftSide tasks={tasks} toggle={toggle}/>
+      <ChatArea messages={msgs} onSend={send} typing={typing}/>
+      <RightSide tasksDone={done} total={tasks.length}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

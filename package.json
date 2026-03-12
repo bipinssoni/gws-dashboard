@@ -1,0 +1,22 @@
+{
+  "name": "workspace-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One dashboard for your entire Google Workspace — built on gws CLI",
+  "author": "WorkspaceOS Contributors",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter mcp-bridge dev\" \"pnpm --filter dashboard dev\"",
+    "build": "pnpm --filter shared build && pnpm --filter mcp-bridge build && pnpm --filter dashboard build",
+    "check": "pnpm --filter dashboard lint && pnpm --filter dashboard typecheck",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
