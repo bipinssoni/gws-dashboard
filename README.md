@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/logo.svg" alt="WorkspaceOS" width="100" />
+  <img src="docs/logo.svg" alt="gws-dashboard" width="100" />
 </p>
 
-<h1 align="center">WorkspaceOS</h1>
+<h1 align="center">gws-dashboard</h1>
 
 <p align="center">
   <strong>Your AI-powered Google Workspace cockpit — built on <a href="https://github.com/googleworkspace/cli"><code>gws</code></a> CLI.</strong><br/>
@@ -26,13 +26,13 @@
 
 ---
 
-> **The first UI ever built for the Google Workspace CLI.** WorkspaceOS is a 3-column cockpit that puts your calendar, email triage, Drive files, tasks, and analytics in one screen — with a conversational AI center that can query all your Workspace data.
+> **The first UI ever built for the Google Workspace CLI.** gws-dashboard is a 3-column cockpit that puts your calendar, email triage, Drive files, tasks, and analytics in one screen — with a conversational AI center that can query all your Workspace data.
 
 ## Why?
 
 Engineering teams live across 8–12 browser tabs. Gmail, Calendar, Drive, Sheets, Chat — all open, all demanding attention. There's no single view that answers: *"What needs my attention right now?"*
 
-The [`gws` CLI](https://github.com/googleworkspace/cli) solved API fragmentation. WorkspaceOS solves the **UX problem**.
+The [`gws` CLI](https://github.com/googleworkspace/cli) solved API fragmentation. gws-dashboard solves the **UX problem**.
 
 | Before | After |
 |---|---|
@@ -51,7 +51,7 @@ Open `docs/demo.html` in any browser — no install needed. Fully interactive wi
 open docs/demo.html
 ```
 
-The demo includes working AI chat (6 prompt types), interactive task checkboxes, switchable analytics tabs, and the complete 3-column layout.
+The demo includes working AI chat (6 prompt types), interactive task checkboxes, switchable analytics tabs, dark/light theme toggle, and the complete 3-column layout styled with Google's brand palette.
 
 ## Quick Start
 
@@ -67,9 +67,9 @@ npm install -g @googleworkspace/cli
 # Authenticate (one-time — opens browser for Google OAuth)
 gws auth setup
 
-# Clone WorkspaceOS
-git clone https://github.com/user/workspace-os.git
-cd workspace-os
+# Clone gws-dashboard
+git clone https://github.com/bipinssoni/gws-dashboard.git
+cd gws-dashboard
 
 # Install dependencies
 pnpm install
@@ -112,16 +112,26 @@ docker compose up
 - Drive file browser tab
 - Priority inbox tab with color-coded urgency
 
+### 🎨 Google-Themed UI with Dark / Light Mode
+
+gws-dashboard uses Google's brand palette throughout:
+- **Blue** — Calendar, Drive, navigation
+- **Red** — Email, inbox, unread count
+- **Yellow** — Analytics, briefings
+- **Green** — Tasks, status indicators
+
+A toggle button in the sidebar switches between dark (default) and light mode instantly.
+
 ### 🔐 Built-in Auth Flow
 
-WorkspaceOS handles the entire Google OAuth flow in the UI:
+gws-dashboard handles the entire Google OAuth flow in the UI:
 
 1. **gws not installed** → Shows install instructions with copy-paste commands
 2. **Not authenticated** → "Sign in with Google" button triggers `gws auth login`
 3. **Auth in progress** → Shows OAuth URL, handles "unverified app" warnings
 4. **Ready** → Auto-transitions to dashboard
 
-Credentials are AES-256-GCM encrypted in your OS keyring. WorkspaceOS never sees your Google password.
+Credentials are AES-256-GCM encrypted in your OS keyring. gws-dashboard never sees your Google password.
 
 ### 🤖 Agent-Ready
 
@@ -172,7 +182,7 @@ Agent actions appear in the audit log with full transparency.
 | Component | Technology | Why |
 |---|---|---|
 | Frontend | React 18 + TypeScript | Hooks-based, rich ecosystem |
-| Styling | Tailwind CSS | Utility-first, dark theme |
+| Styling | Tailwind CSS + Google palette | Utility-first, Google brand theme |
 | State | React hooks + props | Simple, no external state lib needed |
 | Charts | Inline SVG sparklines | Zero dependencies, crisp rendering |
 | Bridge | Node.js + Express | Thin proxy (~550 LOC) with auth management |
@@ -183,7 +193,7 @@ Agent actions appear in the audit log with full transparency.
 ## Project Structure
 
 ```
-workspace-os/
+gws-dashboard/
 ├── packages/
 │   ├── dashboard/                # React app (Vite + TypeScript)
 │   │   ├── src/
@@ -250,7 +260,7 @@ Best first contributions:
 
 ## Security
 
-- **Auth delegation**: WorkspaceOS never touches credentials. `gws` handles all OAuth.
+- **Auth delegation**: gws-dashboard never touches credentials. `gws` handles all OAuth.
 - **OS keyring**: Credentials encrypted with AES-256-GCM, stored in macOS Keychain / Windows Credential Manager / Linux Secret Service.
 - **No telemetry**: Zero data collection. Everything stays on your machine.
 - **Scope control**: Enable only the Workspace services you need via config.
